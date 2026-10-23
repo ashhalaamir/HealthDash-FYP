@@ -1,0 +1,104 @@
+{
+  "title": "ICU Overview",
+  "widgets": [
+    {
+      "id": "adm",
+      "type": "kpi",
+      "label": "Total admissions",
+      "agg": "count"
+    },
+    {
+      "id": "los",
+      "type": "kpi",
+      "label": "Average stay (days)",
+      "agg": "mean",
+      "column": "length_of_stay_days",
+      "higher_is_better": false
+    },
+    {
+      "id": "vent",
+      "type": "kpi",
+      "label": "Ventilated patients",
+      "agg": "count",
+      "where": {
+        "ventilated": "Yes"
+      },
+      "higher_is_better": false
+    },
+    {
+      "id": "apache",
+      "type": "kpi",
+      "label": "Average APACHE score",
+      "agg": "mean",
+      "column": "apache_score",
+      "higher_is_better": false
+    },
+    {
+      "id": "trend",
+      "type": "trend",
+      "label": "Admissions over time",
+      "agg": "count",
+      "span": 6
+    },
+    {
+      "id": "outc",
+      "type": "breakdown",
+      "chart": "donut",
+      "label": "Outcomes",
+      "by": "outcome",
+      "span": 3
+    },
+    {
+      "id": "gender",
+      "type": "breakdown",
+      "chart": "donut",
+      "label": "Admissions by gender",
+      "by": "gender",
+      "span": 3
+    },
+    {
+      "id": "diag",
+      "type": "breakdown",
+      "chart": "bar",
+      "label": "Admissions by diagnosis",
+      "by": "diagnosis",
+      "span": 6
+    },
+    {
+      "id": "age",
+      "type": "breakdown",
+      "chart": "bar",
+      "label": "Admissions by age",
+      "by": "age_group",
+      "order": [
+        "Under 18",
+        "18-39",
+        "40-59",
+        "60+"
+      ],
+      "span": 6
+    },
+    {
+      "id": "losd",
+      "type": "combo",
+      "label": "Admissions and average stay by diagnosis",
+      "by": "diagnosis",
+      "span": 12,
+      "bar": {
+        "agg": "count"
+      },
+      "line": {
+        "agg": "mean",
+        "column": "length_of_stay_days"
+      },
+      "bar_label": "Admissions",
+      "line_label": "Avg stay (days)"
+    }
+  ],
+  "filters": [
+    "gender",
+    "age_group",
+    "diagnosis",
+    "ventilated"
+  ]
+}

@@ -1,0 +1,112 @@
+{
+  "title": "CLARITY",
+  "widgets": [
+    {
+      "id": "visits",
+      "type": "kpi",
+      "label": "Total OPD visits",
+      "agg": "count"
+    },
+    {
+      "id": "patients",
+      "type": "kpi",
+      "label": "Unique patients",
+      "agg": "nunique",
+      "column": "patient_id"
+    },
+    {
+      "id": "vas",
+      "type": "kpi",
+      "label": "Average follow-up VAS",
+      "agg": "mean",
+      "column": "follow_up_vas",
+      "higher_is_better": false
+    },
+    {
+      "id": "extra",
+      "type": "kpi",
+      "label": "Additional visits",
+      "agg": "count",
+      "where": {
+        "additional_visit": "Yes"
+      },
+      "higher_is_better": false
+    },
+    {
+      "id": "trend",
+      "type": "trend",
+      "label": "Daily OPD visit trend",
+      "agg": "count",
+      "span": 6
+    },
+    {
+      "id": "gender",
+      "type": "breakdown",
+      "chart": "donut",
+      "label": "Visits by gender",
+      "by": "gender",
+      "span": 3
+    },
+    {
+      "id": "age",
+      "type": "breakdown",
+      "chart": "bar",
+      "label": "Visits by age",
+      "by": "age_group",
+      "order": [
+        "Under 18",
+        "18-39",
+        "40-59",
+        "60+"
+      ],
+      "span": 3
+    },
+    {
+      "id": "diag",
+      "type": "breakdown",
+      "chart": "bar",
+      "label": "Visits by diagnosis",
+      "by": "diagnosis",
+      "top": 8,
+      "span": 4
+    },
+    {
+      "id": "treat",
+      "type": "breakdown",
+      "chart": "bar",
+      "label": "Visits by treatment",
+      "by": "treatment",
+      "span": 4
+    },
+    {
+      "id": "inv",
+      "type": "breakdown",
+      "chart": "donut",
+      "label": "Visits by investigation",
+      "by": "investigation",
+      "span": 4
+    },
+    {
+      "id": "vasc",
+      "type": "combo",
+      "label": "Visits and average VAS by complaint",
+      "by": "chief_complaint",
+      "top": 8,
+      "span": 12,
+      "bar": {
+        "agg": "count"
+      },
+      "line": {
+        "agg": "mean",
+        "column": "follow_up_vas"
+      },
+      "bar_label": "Visits",
+      "line_label": "Avg VAS"
+    }
+  ],
+  "filters": [
+    "gender",
+    "age_group",
+    "chief_complaint"
+  ]
+}

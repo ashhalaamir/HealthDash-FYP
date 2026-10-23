@@ -1,0 +1,7 @@
+pandas>=2.2
+numpy
+openpyxl
+requests
+python-dotenv
+pytest
+streamlit
