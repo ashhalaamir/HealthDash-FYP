@@ -25,6 +25,15 @@ from src.pipeline import default_periods, make_dashboard, prepare
 from src.spec_generator import generate_spec
 
 st.set_page_config(page_title="HealthDash", layout="wide")
+
+# Let the dashboard use the whole page: no page padding, no top bar clutter, iframe as tall as the window.
+st.markdown("""<style>
+.block-container, [data-testid="stMainBlockContainer"]{padding:0!important;max-width:100%!important}
+[data-testid="stMain"] [data-testid="stVerticalBlock"]{gap:0!important}
+[data-testid="stHeader"]{background:transparent!important;height:0!important}
+[data-testid="stToolbar"], .stAppDeployButton, #MainMenu, footer{display:none!important}
+iframe{height:100vh!important;width:100%!important;border:0!important;display:block}
+</style>""", unsafe_allow_html=True)
 ss = st.session_state
 ss.setdefault("file_id", 0)
 ss.setdefault("sig", None)
@@ -113,7 +122,6 @@ active = {k: v for k, v in selected.items() if v}
 st.sidebar.header("Summary")
 go = st.sidebar.button("Summarise this view (AI)", type="primary", key="summarise",
                        help="Asks the LLM to write a summary of exactly this filter and date selection.")
-height = st.sidebar.slider("Page height", 800, 3000, 1900, step=100, key="height")
 
 # ------------------------------------------------------------------ build
 view_key = json.dumps([fid, design, current, baseline, active], sort_keys=True)
@@ -128,14 +136,14 @@ except ValueError as e:
     st.stop()
 
 ins = out["insights"]
-st.caption(f"Design: {spec_source} | Summary: {'AI' if ins['source'] == 'llm' else 'automatic'} | "
-           f"{len(prep.df):,} records after cleaning")
+st.sidebar.caption(f"Design: {spec_source} | Summary: {'AI' if ins['source'] == 'llm' else 'automatic'} | "
+                   f"{len(prep.df):,} records after cleaning")
 if ins["notes"]:
-    st.warning(" ".join(ins["notes"]))
+    st.sidebar.warning(" ".join(ins["notes"]))
 if spec_notes or out["warnings"]:
-    with st.expander("Notes about this dashboard"):
+    with st.sidebar.expander("Notes about this dashboard"):
         for n in dict.fromkeys(spec_notes + out["warnings"]):
             st.write(f"- {n}")
+st.sidebar.download_button("Download this dashboard (HTML)", out["html"], file_name=f"{title}_dashboard.html", mime="text/html")
 
-components.html(out["html"], height=height, scrolling=True)
-st.download_button("Download this dashboard (HTML)", out["html"], file_name=f"{title}_dashboard.html", mime="text/html")
+components.html(out["html"], height=1000, scrolling=True)   # the CSS above stretches this to the window height

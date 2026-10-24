@@ -7,10 +7,32 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root{
-  --bg:#150f45; --side:#100b38; --panel:#211968; --line:#352b8f;
-  --ink:#f2eeff; --mute:#a69cdc; --coral:#ff8a65; --lilac:#c58bff;
-  --good:#5be3a4; --bad:#ff6b7a; --grey:#7d74b8;
+  --bg:#0d1a1e; --side:#09141a; --panel:#14272d; --line:#244048; --grid:rgba(255,255,255,.08);
+  --ink:#e9f4f2; --mute:#8fb1ab; --cur:#2dd4bf; --alt:#f5b942; --base:#5f7f8a;
+  --good:#7ddc8a; --bad:#ff7b7b; --on-cur:#04201c; --on-alt:#2a1d00; --on-bad:#2a0a0a;
+  --p1:#2dd4bf; --p2:#f5b942; --p3:#60a5fa; --p4:#f472b6; --p5:#a3e635; --p6:#fb923c;
 }
+@media (prefers-color-scheme: light){:root{
+  --bg:#f3f7f6; --side:#ffffff; --panel:#ffffff; --line:#d3e1de; --grid:rgba(0,0,0,.08);
+  --ink:#10262b; --mute:#587771; --cur:#0f9d8a; --alt:#d98e04; --base:#92a8ae;
+  --good:#1e9d55; --bad:#d64545; --on-cur:#ffffff; --on-alt:#ffffff; --on-bad:#ffffff;
+  --p1:#0f9d8a; --p2:#d98e04; --p3:#2f6fd6; --p4:#d6458f; --p5:#6aa31a; --p6:#e0701f;
+}}
+[hidden]{display:none!important}
+.card,.ins{box-shadow:0 0 0 1px var(--line)}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.tab{background:none;border:1px solid var(--line);color:var(--mute);padding:6px 12px;border-radius:99px;font:inherit;font-size:13px;cursor:pointer}
+.tab:hover{border-color:var(--cur)}
+.tab[aria-selected=true]{background:var(--cur);border-color:var(--cur);color:var(--on-cur);font-weight:700}
+.tab:focus-visible{outline:2px solid var(--alt);outline-offset:2px}
+.hint{color:var(--mute);font-size:13px;margin:0 0 10px}
+.tbl{overflow-x:auto}
+.cmp-t{width:100%;border-collapse:collapse;font-size:14px}
+.cmp-t th,.cmp-t td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+.cmp-t th:first-child,.cmp-t td:first-child{text-align:left}
+.cmp-t th{cursor:pointer;color:var(--mute);font-weight:600;font-size:13px}
+.cmp-t th:hover{color:var(--ink)}
+.star{color:var(--alt);font-weight:800}
 *{box-sizing:border-box;margin:0}
 body{background:var(--bg);color:var(--ink);font:15px/1.45 "Manrope","Segoe UI",system-ui,sans-serif;display:flex;min-height:100vh}
 aside{width:230px;background:var(--side);padding:24px 18px;position:sticky;top:0;height:100vh;overflow:auto;flex:none;border-right:1px solid var(--line)}
@@ -18,15 +40,15 @@ aside h1{font-size:22px;font-weight:800;letter-spacing:.02em}
 aside .dates{color:var(--mute);font-size:13px;margin:6px 0 24px}
 aside h3{font-size:13px;font-weight:600;color:var(--mute);margin:0 0 8px}
 .btn{display:block;width:100%;text-align:left;background:none;border:1px solid var(--line);color:var(--ink);padding:9px 11px;border-radius:8px;margin-bottom:7px;font:inherit;font-size:14px;cursor:pointer}
-.btn:hover{border-color:var(--lilac)}
-.btn.on{background:var(--coral);border-color:var(--coral);color:#2a1030;font-weight:700}
-.btn:focus-visible{outline:2px solid var(--lilac);outline-offset:2px}
+.btn:hover{border-color:var(--alt)}
+.btn.on{background:var(--cur);border-color:var(--cur);color:var(--on-cur);font-weight:700}
+.btn:focus-visible{outline:2px solid var(--alt);outline-offset:2px}
 main{flex:1;padding:24px;min-width:0}
-.ins{background:var(--panel);border-radius:10px;padding:16px 18px;margin-bottom:14px;border-left:4px solid var(--coral)}
+.ins{background:var(--panel);border-radius:10px;padding:16px 18px;margin-bottom:14px;border-left:4px solid var(--cur)}
 .ins .top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .ins h2{font-size:14px;font-weight:600;color:var(--mute)}
 .badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--line);color:var(--ink)}
-.badge.ai{background:var(--lilac);color:#2a1030}
+.badge.ai{background:var(--alt);color:var(--on-alt)}
 .ins .scope{color:var(--mute);font-size:13px;margin-bottom:8px}
 .ins .sum{font-size:16px;line-height:1.55}
 .ins .note{color:var(--mute);font-size:12px;margin-top:8px}
@@ -35,8 +57,8 @@ main{flex:1;padding:24px;min-width:0}
 .alerts{list-style:none;padding:0;margin:10px 0 0;display:grid;gap:8px}
 .alerts li{display:flex;gap:10px;align-items:flex-start;font-size:14px}
 .chip{flex:none;font-size:11px;font-weight:700;text-transform:uppercase;padding:2px 7px;border-radius:5px;margin-top:2px}
-.chip.high{background:var(--bad);color:#2a0a10}
-.chip.medium{background:var(--coral);color:#2a1030}
+.chip.high{background:var(--bad);color:var(--on-bad)}
+.chip.medium{background:var(--alt);color:var(--on-alt)}
 .chip.low{background:var(--line);color:var(--mute)}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:14px}
 .card{background:var(--panel);border-radius:10px;padding:16px;min-width:0}
@@ -80,7 +102,11 @@ main{flex:1;padding:24px;min-width:0}
   <section class="cmp" id="cmp">
     <h2>Change over time</h2>
     <p id="cmpNote"></p>
-    <div class="card"><h2 id="cmpTitle"></h2><div class="chart"><canvas id="cmpChart"></canvas></div></div>
+    <div class="card"><h2 id="cmpTitle"></h2>
+      <div class="tabs" id="cmpTabs" role="tablist" aria-label="Comparison view"></div>
+      <p class="hint" id="cmpHint"></p>
+      <div class="chart" id="cmpChartBox"><canvas id="cmpChart"></canvas></div>
+      <div class="tbl" id="cmpTable" hidden></div></div>
   </section>
 </main>
 
@@ -144,12 +170,13 @@ main{flex:1;padding:24px;min-width:0}
 
 <script>
 const {spec, data, insights} = JSON.parse(document.getElementById('payload').textContent);
-const COL = {coral:'#ff8a65', lilac:'#c58bff', grey:'#7d74b8'};
-const PALETTE = ['#ff8a65','#c58bff','#6ea8ff','#5be3a4','#ffd166','#ff6b7a'];
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const COL = {cur: css('--cur'), alt: css('--alt'), base: css('--base')};
+const PALETTE = ['--p1','--p2','--p3','--p4','--p5','--p6'].map(css);
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-Chart.defaults.color = '#b9afe8';
+Chart.defaults.color = css('--mute');
 Chart.defaults.font.family = '"Manrope","Segoe UI",system-ui,sans-serif';
-Chart.defaults.borderColor = 'rgba(255,255,255,.08)';
+Chart.defaults.borderColor = css('--grid');
 Chart.defaults.animation = reduce ? false : {duration: 500};
 
 const $ = id => document.getElementById(id);
@@ -211,8 +238,8 @@ function chartCard(w){
 function draw(canvas, w){
   const d = W(w.id), c = d.current, b = d.baseline;
   if (w.type === 'trend'){
-    const sets = [{label:'Current', data:c.values, borderColor:COL.coral, backgroundColor:COL.coral, tension:.35, pointRadius:2}];
-    if (b) sets.push({label:'Baseline', data:b.values, borderColor:COL.grey, borderDash:[5,4], tension:.35, pointRadius:0});
+    const sets = [{label:'Current', data:c.values, borderColor:COL.cur, backgroundColor:COL.cur, tension:.35, pointRadius:2}];
+    if (b) sets.push({label:'Baseline', data:b.values, borderColor:COL.base, borderDash:[5,4], tension:.35, pointRadius:0});
     return new Chart(canvas, {type:'line', data:{labels:c.labels, datasets:sets}, options:{maintainAspectRatio:false, plugins:{legend:{display:!!b}}}});
   }
   if (w.type === 'breakdown' && w.chart === 'donut'){
@@ -220,13 +247,13 @@ function draw(canvas, w){
       options:{maintainAspectRatio:false, cutout:'62%', plugins:{legend:{position:'bottom'}}}});
   }
   if (w.type === 'breakdown'){
-    return new Chart(canvas, {type:'bar', data:{labels:c.labels, datasets:[{data:c.values, backgroundColor:COL.coral, borderRadius:3}]},
+    return new Chart(canvas, {type:'bar', data:{labels:c.labels, datasets:[{data:c.values, backgroundColor:COL.cur, borderRadius:3}]},
       options:{indexAxis:'y', maintainAspectRatio:false, plugins:{legend:{display:false}}}});
   }
   if (w.type === 'combo'){
     return new Chart(canvas, {data:{labels:c.labels, datasets:[
-      {type:'bar', label:w.bar_label||'Count', data:c.bar, backgroundColor:COL.coral, borderRadius:3, yAxisID:'y'},
-      {type:'line', label:w.line_label||'Average', data:c.line, borderColor:COL.lilac, backgroundColor:COL.lilac, tension:.35, yAxisID:'y1'}]},
+      {type:'bar', label:w.bar_label||'Count', data:c.bar, backgroundColor:COL.cur, borderRadius:3, yAxisID:'y'},
+      {type:'line', label:w.line_label||'Average', data:c.line, borderColor:COL.alt, backgroundColor:COL.alt, tension:.35, yAxisID:'y1'}]},
       options:{maintainAspectRatio:false, scales:{y:{beginAtZero:true}, y1:{position:'right', grid:{drawOnChartArea:false}}}}});
   }
 }
@@ -238,19 +265,106 @@ for (const w of spec.widgets){
 
 // Comparison: any breakdown widget, or the bar series of a combo widget
 const cmpWidgets = spec.widgets.filter(w => (w.type === 'breakdown' || w.type === 'combo') && W(w.id).baseline);
-let cmpChart = null;
+let cmpChart = null, curW = null, curView = 'side';
+const VIEWS = [['side','Side by side'],['movers','Biggest movers'],['mix','Mix shift'],['contrib','Contribution'],['table','Table']];
+const isCount = w => (w.type === 'combo' ? ((w.bar || {}).agg || 'count') : (w.agg || 'count')) === 'count';
+const sgn = n => (n > 0 ? '+' : '') + fmt(n);
 function series(p){ return p.values || p.bar; }
+
+function rowsFor(w){            // the Python-computed rows; computed here only for older payloads
+  const d = W(w.id);
+  if (d.compare) return d.compare;
+  const c = d.current, b = d.baseline, labels = [...new Set([...c.labels, ...b.labels])];
+  const at = (p, l) => { const i = p.labels.indexOf(l); return i < 0 ? 0 : series(p)[i]; };
+  const tc = labels.reduce((t, l) => t + at(c, l), 0), tb = labels.reduce((t, l) => t + at(b, l), 0);
+  return labels.map(l => { const x = at(c, l), y = at(b, l);
+    return {label:l, current:x, baseline:y, delta:x - y, pct:y ? (x - y) / Math.abs(y) * 100 : null,
+      share_cur:tc ? x / tc * 100 : null, share_base:tb ? y / tb * 100 : null,
+      shift_pp:(tc && tb) ? x / tc * 100 - y / tb * 100 : null, z:null, significant:false}; });
+}
+
+function hbar(labels, data, colors, tip){
+  return new Chart($('cmpChart'), {type:'bar', data:{labels, datasets:[{data, backgroundColor:colors, borderRadius:3}]},
+    options:{indexAxis:'y', maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{callbacks:{label:tip}}}}});
+}
+
+function drawCompare(w){
+  const rows = rowsFor(w), D = data.dates;
+  if (cmpChart) { cmpChart.destroy(); cmpChart = null; }
+  $('cmpChartBox').hidden = curView === 'table';
+  $('cmpTable').hidden = curView !== 'table';
+  let hint = '';
+  if (curView === 'side'){
+    hint = 'Each category in the baseline and in the current period.';
+    cmpChart = new Chart($('cmpChart'), {type:'bar', data:{labels:rows.map(r => r.label), datasets:[
+      {label:D.baseline, data:rows.map(r => r.baseline), backgroundColor:COL.base, borderRadius:3},
+      {label:D.current, data:rows.map(r => r.current), backgroundColor:COL.cur, borderRadius:3}]},
+      options:{maintainAspectRatio:false, plugins:{legend:{position:'top'}}}});
+  } else if (curView === 'movers'){
+    const r = [...rows].sort((a, b) => b.delta - a.delta);
+    hint = 'Change in each category, biggest rise at the top and biggest fall at the bottom.';
+    cmpChart = hbar(r.map(x => x.label), r.map(x => x.delta), r.map(x => x.delta >= 0 ? COL.cur : COL.alt),
+      c => { const x = r[c.dataIndex]; return `${sgn(x.delta)}${x.pct === null ? '' : ` (${sgn(Math.round(x.pct))}%)`}: ${fmt(x.baseline)} to ${fmt(x.current)}`; });
+  } else if (curView === 'mix'){
+    const r = rows.filter(x => x.shift_pp !== null).sort((a, b) => b.shift_pp - a.shift_pp), n = r.filter(x => x.significant).length;
+    hint = `Change in each category's share of the total, in percentage points. Solid bars (${n} of ${r.length}) moved by more than chance would explain; faded bars may be noise.`;
+    cmpChart = hbar(r.map(x => x.label), r.map(x => x.shift_pp), r.map(x => (x.shift_pp >= 0 ? COL.cur : COL.alt) + (x.significant ? '' : '55')),
+      c => { const x = r[c.dataIndex]; return `${sgn(x.shift_pp)} pts: ${fmt(x.share_base)}% to ${fmt(x.share_cur)}%${x.significant ? ' (notable)' : ''}`; });
+  } else if (curView === 'contrib'){
+    const r = [...rows].sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)), B = r.reduce((t, x) => t + x.baseline, 0);
+    let run = B; const bars = [[0, B]], cols = [COL.base];
+    for (const x of r){ bars.push([run, run + x.delta]); cols.push(x.delta >= 0 ? COL.cur : COL.alt); run += x.delta; }
+    bars.push([0, run]); cols.push(COL.base);
+    hint = 'How each category moved the total, from the baseline total to the current total (categories shown only).';
+    cmpChart = new Chart($('cmpChart'), {type:'bar', data:{labels:['Baseline total', ...r.map(x => x.label), 'Current total'],
+      datasets:[{data:bars, backgroundColor:cols, borderRadius:3}]},
+      options:{maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{callbacks:{label:c => {
+        const i = c.dataIndex; return i === 0 ? fmt(B) : i === bars.length - 1 ? fmt(run) : sgn(r[i - 1].delta); }}}}}});
+  } else {
+    hint = 'Click a column heading to sort. A star marks a share shift that is unlikely to be chance.';
+    drawTable(rows);
+  }
+  $('cmpHint').textContent = hint;
+}
+
+let sortKey = 'delta', sortDir = -1;
+function drawTable(rows){
+  const cols = [['label','Category'],['baseline','Baseline'],['current','Current'],['delta','Change'],['pct','% change'],['shift_pp','Share shift (pts)']];
+  const r = [...rows].sort((a, b) => sortDir * (typeof a[sortKey] === 'string' ? a[sortKey].localeCompare(b[sortKey]) : (a[sortKey] ?? -Infinity) - (b[sortKey] ?? -Infinity)));
+  const t = document.createElement('table'); t.className = 'cmp-t';
+  const hr = t.createTHead().insertRow();
+  for (const [k, name] of cols){
+    const th = document.createElement('th'); th.textContent = name + (k === sortKey ? (sortDir < 0 ? ' ▼' : ' ▲') : '');
+    th.onclick = () => { sortDir = k === sortKey ? -sortDir : -1; sortKey = k; drawTable(rows); };
+    hr.appendChild(th);
+  }
+  const tb = t.createTBody();
+  for (const x of r){
+    const tr = tb.insertRow();
+    const vals = [x.label, fmt(x.baseline), fmt(x.current), sgn(x.delta), x.pct === null ? 'new' : sgn(Math.round(x.pct)) + '%', x.shift_pp === null ? '' : sgn(x.shift_pp)];
+    vals.forEach((v, i) => { const td = tr.insertCell(); td.textContent = v; if (i === 5 && x.significant){ const s = document.createElement('span'); s.className = 'star'; s.textContent = ' ★'; td.appendChild(s); } });
+  }
+  $('cmpTable').replaceChildren(t);
+}
+
+function renderTabs(w){
+  if (!isCount(w) && ['mix', 'contrib'].includes(curView)) curView = 'side';
+  const box = $('cmpTabs'); box.replaceChildren();
+  for (const [id, name] of VIEWS){
+    if (!isCount(w) && (id === 'mix' || id === 'contrib')) continue;
+    const b = document.createElement('button');
+    b.className = 'tab'; b.type = 'button'; b.textContent = name; b.setAttribute('role', 'tab');
+    b.setAttribute('aria-selected', String(id === curView));
+    b.onclick = () => { curView = id; renderTabs(w); drawCompare(w); };
+    box.appendChild(b);
+  }
+}
+
 function showCompare(w){
-  const c = W(w.id).current, b = W(w.id).baseline;
-  const labels = [...new Set([...c.labels, ...b.labels])];
-  const pick = p => labels.map(l => { const i = p.labels.indexOf(l); return i < 0 ? 0 : series(p)[i]; });
+  curW = w;
   $('cmpTitle').textContent = w.label;
   $('cmpNote').textContent = `${data.dates.baseline} compared with ${data.dates.current}`;
-  if (cmpChart) cmpChart.destroy();
-  cmpChart = new Chart($('cmpChart'), {type:'bar', data:{labels, datasets:[
-      {label:data.dates.baseline, data:pick(b), backgroundColor:COL.grey, borderRadius:3},
-      {label:data.dates.current, data:pick(c), backgroundColor:COL.coral, borderRadius:3}]},
-    options:{maintainAspectRatio:false, plugins:{legend:{position:'top'}}}});
+  renderTabs(w); drawCompare(w);
   document.querySelectorAll('#dims .btn').forEach(x => x.classList.toggle('on', x.dataset.id === w.id));
 }
 if (cmpWidgets.length){

@@ -14,6 +14,8 @@ agg is one of count, sum, mean, median, min, max, nunique. "column" is the measu
 """
 import pandas as pd
 
+from .compare import compare_rows
+
 AGGS = {"count", "sum", "mean", "median", "min", "max", "nunique"}
 NEEDS_NUMERIC = {"sum", "mean", "median"}
 TYPES = {"kpi", "trend", "breakdown", "combo"}
@@ -155,6 +157,8 @@ def _breakdown(cur, base, w):
     out = {"current": {"labels": labels, "values": _series(cur, labels, by, agg, col)}}
     if base is not None:
         out["baseline"] = {"labels": labels, "values": _series(base, labels, by, agg, col)}
+        out["compare"] = compare_rows(dict(zip(labels, out["current"]["values"])),
+                                      dict(zip(labels, out["baseline"]["values"])), counts=(agg == "count"))
     return out
 
 
@@ -167,6 +171,8 @@ def _combo(cur, base, w):
     out = {"current": mk(cur)}
     if base is not None:
         out["baseline"] = mk(base)
+        out["compare"] = compare_rows(dict(zip(labels, out["current"]["bar"])),
+                                      dict(zip(labels, out["baseline"]["bar"])), counts=(ba == "count"))
     return out
 
 

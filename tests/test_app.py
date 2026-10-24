@@ -33,7 +33,7 @@ def insights_of(at):
 
 def test_loads_sample_and_renders_dashboard(app):
     assert not app.exception
-    assert "Design: rules" in app.caption[0].value or "Design: fallback" in app.caption[0].value
+    assert "Design: rules" in app.sidebar.caption[0].value or "Design: fallback" in app.sidebar.caption[0].value
     assert "Total records" in page(app) and "Auto summary" in page(app)
 
 
@@ -47,7 +47,7 @@ def test_filter_changes_the_page_and_scope(app):
 def test_summarise_without_key_falls_back_and_says_so(app):
     app.sidebar.button(key="summarise").click().run()
     assert not app.exception
-    assert any("template summary" in w.value for w in app.warning)
+    assert any("template summary" in w.value for w in app.sidebar.warning)
     assert "Auto summary" in page(app)
 
 
@@ -59,7 +59,7 @@ def test_example_spec_selectable(app):
 
 def test_ai_design_without_key_falls_back(app):
     next(s for s in app.sidebar.selectbox if s.label == "Dashboard design").select("AI-designed (LLM)").run()
-    assert not app.exception and "Design: fallback" in app.caption[0].value
+    assert not app.exception and "Design: fallback" in app.sidebar.caption[0].value
 
 
 def test_switching_to_icu_data(app):
@@ -82,14 +82,14 @@ def fake_llm(monkeypatch, summary):
 def test_ai_summary_is_shown_when_it_passes_the_number_check(app, monkeypatch):
     fake_llm(monkeypatch, "Visits and unique patients both increased, and pain scores improved.")
     app.sidebar.button(key="summarise").click().run()
-    assert not app.exception and not app.warning
+    assert not app.exception and not app.sidebar.warning
     assert "AI summary" in page(app) and "pain scores improved" in page(app)
 
 
 def test_ai_summary_with_an_invented_number_is_rejected(app, monkeypatch):
     fake_llm(monkeypatch, "Visits rose by 9999% this period.")
     app.sidebar.button(key="summarise").click().run()
-    assert any("not in the findings" in w.value for w in app.warning)
+    assert any("not in the findings" in w.value for w in app.sidebar.warning)
     ins = insights_of(app)
     assert ins["source"] == "template" and "9999" not in ins["summary"]
 
