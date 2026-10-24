@@ -62,6 +62,21 @@ def _shape_problem(w):
     return None
 
 
+_AGG_WORD = {"count": "Records", "sum": "Total", "mean": "Average", "median": "Median", "min": "Lowest", "max": "Highest", "nunique": "Unique"}
+
+
+def _default_label(w):
+    """A readable label for a widget that came without one (LLMs forget), so nothing downstream needs to care."""
+    nice = lambda s: str(s).replace("_", " ").strip().lower()
+    agg, col = w.get("agg", "count"), w.get("column")
+    if w.get("type") in ("breakdown", "combo"):
+        measure = "Records" if agg == "count" or not col else f"{_AGG_WORD.get(agg, 'Value')} {nice(col)}"
+        return f"{measure} by {nice(w.get('by', 'category'))}"
+    if w.get("type") == "trend":
+        return "Records over time" if agg == "count" or not col else f"{_AGG_WORD.get(agg, 'Value')} {nice(col)} over time"
+    return "Total records" if agg == "count" and not col else f"{_AGG_WORD.get(agg, 'Value')} {nice(col or w.get('id', 'value'))}"
+
+
 def validate_spec(spec, df):
     """Return (clean_spec, problems). Invalid widgets are dropped, so one bad LLM
     suggestion never breaks the dashboard."""
@@ -112,7 +127,7 @@ def validate_spec(spec, df):
             problems.append(f"widget '{wid if isinstance(wid, str) else '#' + str(i)}' dropped: {err}")
         else:
             seen.add(wid)
-            good.append(w)
+            good.append(w if str(w.get("label") or "").strip() else {**w, "label": _default_label(w)})
     out = {**spec, "widgets": good}
     if "filters" in spec:
         wanted = spec["filters"] if isinstance(spec["filters"], list) else []

@@ -39,6 +39,11 @@ def _bump(sev):
     return {"low": "medium", "medium": "high", "high": "high"}[sev]
 
 
+def _label(w):
+    """Widget label, tolerating payloads built by hand without one."""
+    return str(w.get("label") or "").strip() or str(w.get("id", "this measure"))
+
+
 def _finding(kind, severity, text, subject, score):
     return {"kind": kind, "severity": severity, "text": text, "subject": subject, "score": round(float(score), 2)}
 
@@ -87,7 +92,7 @@ def _kpis(payload):
         if cur == base:
             continue
         if base == 0:
-            out.append(_finding("kpi_change", "medium", f"{w['label']} is {_fmt(cur)} now, up from none before.", w["id"], 100))
+            out.append(_finding("kpi_change", "medium", f"{_label(w)} is {_fmt(cur)} now, up from none before.", w["id"], 100))
             continue
         pct = _pct(cur, base)
         if abs(pct) < 5:
@@ -99,7 +104,7 @@ def _kpis(payload):
         if w.get("agg", "count") == "count" and (base < MIN_COUNT or abs(cur - base) < 3):
             sev = "low"
         verb = "rose" if pct > 0 else "fell"
-        out.append(_finding("kpi_change", sev, f"{w['label']} {verb} {abs(pct):.0f}% ({_fmt(base)} to {_fmt(cur)}).", w["id"], abs(pct)))
+        out.append(_finding("kpi_change", sev, f"{_label(w)} {verb} {abs(pct):.0f}% ({_fmt(base)} to {_fmt(cur)}).", w["id"], abs(pct)))
     return out
 
 
@@ -110,7 +115,7 @@ def _breakdowns(payload, compare=True):
             continue
         d = payload["data"]["widgets"][w["id"]]
         cur = dict(zip(d["current"]["labels"], d["current"]["values"]))
-        lab = w["label"][0].lower() + w["label"][1:]
+        lab = _label(w)[0].lower() + _label(w)[1:]
         total = (d.get("totals") or {}).get("current") or sum(cur.values())   # whole period, not just the bars shown
 
         if w.get("agg", "count") == "count" and total:

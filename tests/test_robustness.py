@@ -124,3 +124,41 @@ def test_small_sample_and_tiny_baseline_detected_without_a_count_kpi():
 def test_context_rows_come_from_the_payload():
     p = build_payload(frame({"A": 60}, {"A": 3}), NO_COUNT_KPI, "d", CUR, BASE)
     assert make_context(p)["rows"] == 60
+
+
+# ---- 5. a widget without a label (or with a blank one) is given a readable default, never a crash
+UNLABELLED = [
+    {"id": "dx", "type": "breakdown", "by": "dx"},
+    {"id": "k", "type": "kpi", "agg": "count"},
+    {"id": "t", "type": "trend", "agg": "count"},
+    {"id": "c", "type": "combo", "by": "dx", "bar": {"agg": "count"}, "line": {"agg": "mean", "column": "v"}},
+    {"id": "m", "type": "kpi", "agg": "mean", "column": "v", "label": ""},
+    {"id": "b", "type": "breakdown", "by": "dx", "label": "   "},
+]
+
+
+@pytest.mark.parametrize("w", UNLABELLED, ids=lambda w: w["id"])
+def test_widget_without_a_label_gets_a_default_and_the_pipeline_runs(w):
+    df = frame({"A": 60, "B": 10}, {"A": 10, "B": 40})
+    p = build_payload(df, {"widgets": [{"id": "n0", "type": "kpi", "label": "Total", "agg": "count"}, w]}, "d", CUR, BASE)
+    shown = next(x for x in p["spec"]["widgets"] if x["id"] == w["id"])
+    assert shown["label"].strip() and w["id"] in p["data"]["widgets"]
+    build_findings(p)                                              # must not raise
+
+
+def test_default_labels_read_well():
+    clean, _ = validate_spec({"widgets": [
+        {"id": "a", "type": "breakdown", "by": "age_group"},
+        {"id": "b", "type": "kpi", "agg": "mean", "column": "follow_up_vas"},
+        {"id": "c", "type": "kpi", "agg": "count"}]}, frame({"A": 5}).assign(age_group="x", follow_up_vas=1.0))
+    assert [w["label"] for w in clean["widgets"]] == ["Records by age group", "Average follow up vas", "Total records"]
+
+
+def test_insights_tolerate_a_hand_built_payload_without_labels():
+    from tests.test_insights import payload
+    p = payload()
+    for w in p["spec"]["widgets"]:
+        w.pop("label")
+    texts = [f["text"] for f in build_findings(p)]
+    assert any(t.startswith("n rose 50%") for t in texts)           # falls back to the widget id
+    assert any(t.startswith("In d, 'A' rose") for t in texts)

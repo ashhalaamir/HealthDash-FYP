@@ -375,7 +375,7 @@ if (cmpWidgets.length){
   for (const w of cmpWidgets){
     const btn = document.createElement('button');
     btn.className = 'btn'; btn.dataset.id = w.id;
-    btn.textContent = w.label.replace(/^.*? by /i, '').replace(/^./, s => s.toUpperCase());
+    btn.textContent = (w.label || w.id || '').replace(/^.*? by /i, '').replace(/^./, s => s.toUpperCase());
     btn.onclick = () => showCompare(w);
     $('dims').appendChild(btn);
   }
