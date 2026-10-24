@@ -68,7 +68,10 @@ def generate_spec(profile, df, title="Dashboard", llm=None, focus=None):
         return fallback(f"LLM unavailable or unreadable ({type(e).__name__}: {e}); used rule-based spec.")
 
     spec["title"] = spec.get("title") or title
-    clean, problems = validate_spec(spec, df)
+    try:
+        clean, problems = validate_spec(spec, df)
+    except Exception as e:                                    # never let a strange reply crash the app
+        return fallback(f"LLM spec could not be validated ({type(e).__name__}: {e}); used rule-based spec.")
     if len(clean["widgets"]) < MIN_WIDGETS or not any(w["type"] == "kpi" for w in clean["widgets"]):
         return fallback(f"Only {len(clean['widgets'])} valid widgets from LLM; used rule-based spec. {problems}")
     return clean, {"source": "llm", "warnings": problems}

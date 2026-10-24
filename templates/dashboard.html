@@ -311,15 +311,19 @@ function drawCompare(w){
     cmpChart = hbar(r.map(x => x.label), r.map(x => x.shift_pp), r.map(x => (x.shift_pp >= 0 ? COL.cur : COL.alt) + (x.significant ? '' : '55')),
       c => { const x = r[c.dataIndex]; return `${sgn(x.shift_pp)} pts: ${fmt(x.share_base)}% to ${fmt(x.share_cur)}%${x.significant ? ' (notable)' : ''}`; });
   } else if (curView === 'contrib'){
-    const r = [...rows].sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)), B = r.reduce((t, x) => t + x.baseline, 0);
+    const T = W(w.id).totals, r = [...rows].sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+    const B = T && T.baseline != null ? T.baseline : r.reduce((t, x) => t + x.baseline, 0);
+    const steps = r.map(x => ({label:x.label, delta:x.delta}));
+    const shown = r.reduce((t, x) => t + x.delta, 0), other = T && T.current != null ? T.current - B - shown : 0;
+    if (Math.abs(other) > 1e-9) steps.push({label:'Other categories', delta:other});
     let run = B; const bars = [[0, B]], cols = [COL.base];
-    for (const x of r){ bars.push([run, run + x.delta]); cols.push(x.delta >= 0 ? COL.cur : COL.alt); run += x.delta; }
+    for (const x of steps){ bars.push([run, run + x.delta]); cols.push(x.delta >= 0 ? COL.cur : COL.alt); run += x.delta; }
     bars.push([0, run]); cols.push(COL.base);
-    hint = 'How each category moved the total, from the baseline total to the current total (categories shown only).';
-    cmpChart = new Chart($('cmpChart'), {type:'bar', data:{labels:['Baseline total', ...r.map(x => x.label), 'Current total'],
+    hint = 'How each category moved the total, from the baseline total to the current total.';
+    cmpChart = new Chart($('cmpChart'), {type:'bar', data:{labels:['Baseline total', ...steps.map(x => x.label), 'Current total'],
       datasets:[{data:bars, backgroundColor:cols, borderRadius:3}]},
       options:{maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{callbacks:{label:c => {
-        const i = c.dataIndex; return i === 0 ? fmt(B) : i === bars.length - 1 ? fmt(run) : sgn(r[i - 1].delta); }}}}}});
+        const i = c.dataIndex; return i === 0 ? fmt(B) : i === bars.length - 1 ? fmt(run) : sgn(steps[i - 1].delta); }}}}}});
   } else {
     hint = 'Click a column heading to sort. A star marks a share shift that is unlikely to be chance.';
     drawTable(rows);

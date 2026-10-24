@@ -16,7 +16,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 import streamlit as st
-import streamlit.components.v1 as components
 
 from src.aggregator import cumulative_windows, previous_period
 from src.filters import filter_options, filterable_columns
@@ -138,6 +137,10 @@ except ValueError as e:
 ins = out["insights"]
 st.sidebar.caption(f"Design: {spec_source} | Summary: {'AI' if ins['source'] == 'llm' else 'automatic'} | "
                    f"{len(prep.df):,} records after cleaning")
+for f in ins["findings"]:                           # a tiny baseline or view deserves a warning next to the controls
+    if f["kind"] in ("baseline_small", "small_sample"):
+        st.sidebar.warning(f["text"])
+        break
 if ins["notes"]:
     st.sidebar.warning(" ".join(ins["notes"]))
 if spec_notes or out["warnings"]:
@@ -146,4 +149,10 @@ if spec_notes or out["warnings"]:
             st.write(f"- {n}")
 st.sidebar.download_button("Download this dashboard (HTML)", out["html"], file_name=f"{title}_dashboard.html", mime="text/html")
 
-components.html(out["html"], height=1000, scrolling=True)   # the CSS above stretches this to the window height
+# st.components.v1.html is deprecated; st.iframe replaces it. The CSS above stretches the frame to the window height.
+# The page writes every LLM-derived string with textContent, so the model's text cannot become markup.
+if hasattr(st, "iframe"):
+    st.iframe(out["html"], width="stretch", height=1000)
+else:                                                        # older Streamlit without st.iframe
+    import streamlit.components.v1 as components
+    components.html(out["html"], height=1000, scrolling=True)

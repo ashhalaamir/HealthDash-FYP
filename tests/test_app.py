@@ -105,3 +105,12 @@ def test_changing_a_filter_drops_the_stale_ai_summary(app, monkeypatch):
 def test_period_comparison_mode(app):
     app.sidebar.radio[0].set_value("Two periods (current vs the one before)").run()
     assert not app.exception and "Total records" in page(app)
+
+
+def test_tiny_baseline_warns_next_to_the_controls(app):
+    from datetime import date
+    slider = next(x for x in app.sidebar.slider if x.label == "Baseline date and current date")
+    slider.set_value((date(2026, 8, 1), date(2026, 10, 31))).run()      # baseline = the first day only
+    assert not app.exception
+    assert any("baseline" in w.value.lower() for w in app.sidebar.warning)
+    assert "baseline_small" in page(app)

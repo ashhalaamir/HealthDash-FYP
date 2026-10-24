@@ -106,6 +106,22 @@ def test_small_sample_warning_and_empty_view():
     assert [x["kind"] for x in build_findings(empty)] == ["no_data"]
 
 
+def test_tiny_baseline_warns_and_suppresses_comparisons():
+    p = payload(n={"current": {"value": 372}, "baseline": {"value": 1}})
+    f = build_findings(p)
+    assert f[0]["kind"] == "baseline_small" and "only 1 records" in f[0]["text"] and f[0]["severity"] == "high"
+    kinds = {x["kind"] for x in f}
+    assert not kinds & {"kpi_change", "category_shift", "combo_shift"}
+    assert {"spike", "data_quality"} <= kinds            # findings that need no baseline survive
+
+
+def test_empty_baseline_has_its_own_wording_and_both_small_gives_one_warning():
+    f = build_findings(payload(n={"current": {"value": 372}, "baseline": {"value": 0}}))
+    assert "has no records" in f[0]["text"]
+    both = build_findings(payload(n={"current": {"value": 12}, "baseline": {"value": 5}}))
+    assert [x["kind"] for x in both if x["kind"] in ("small_sample", "baseline_small")] == ["small_sample"]
+
+
 def test_combo_shift():
     p = payload()
     p["spec"]["widgets"].append({"id": "c", "type": "combo", "label": "x", "line_label": "Avg VAS"})

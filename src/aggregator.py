@@ -43,9 +43,30 @@ def previous_period(start, end):
 
 
 # --------------------------------------------------------------- validation
+def _shape_problem(w):
+    """Type checks for fields an LLM might get wrong (a list where text belongs, and so on)."""
+    for k in ("id", "type", "by", "column", "agg", "label"):
+        if k in w and not isinstance(w[k], str):
+            return f"'{k}' must be text"
+    for k in ("where", "bar", "line"):
+        if k in w and not isinstance(w[k], dict):
+            return f"'{k}' must be an object"
+    for part in (w.get("bar") or {}, w.get("line") or {}):
+        for k in ("agg", "column"):
+            if k in part and not isinstance(part[k], str):
+                return f"'{k}' must be text"
+    if "top" in w and (isinstance(w["top"], bool) or not isinstance(w["top"], int) or w["top"] < 1):
+        return "'top' must be a positive whole number"
+    if "order" in w and not (isinstance(w["order"], list) and all(isinstance(x, str) for x in w["order"])):
+        return "'order' must be a list of text"
+    return None
+
+
 def validate_spec(spec, df):
     """Return (clean_spec, problems). Invalid widgets are dropped, so one bad LLM
     suggestion never breaks the dashboard."""
+    if not isinstance(spec, dict) or not isinstance(spec.get("widgets", []), list):
+        return {"widgets": []}, ["spec must be an object with a list of widgets"]
     problems, good, seen = [], [], set()
 
     def col_ok(c, need_numeric=False):
@@ -61,33 +82,42 @@ def validate_spec(spec, df):
             return f"agg '{a}' needs a column"
         return col and col_ok(col, a in NEEDS_NUMERIC)
 
-    for w in spec.get("widgets", []):
+    for i, w in enumerate(spec.get("widgets", []), 1):
+        if not isinstance(w, dict):
+            problems.append(f"widget #{i} dropped: not an object")
+            continue
         wid, t = w.get("id"), w.get("type")
-        err = None
-        if not wid or wid in seen:
-            err = "missing or duplicate id"
-        elif t not in TYPES:
-            err = f"unknown type '{t}'"
-        elif t in ("kpi", "trend"):
-            err = agg_problem(w.get("agg", "count"), w.get("column"))
-            for c in (w.get("where") or {}):
-                err = err or col_ok(c)
-        elif t == "breakdown":
-            err = col_ok(w.get("by")) or agg_problem(w.get("agg", "count"), w.get("column"))
-        elif t == "combo":
-            err = col_ok(w.get("by"))
-            for k in ("bar", "line"):
-                part = w.get(k) or {}
-                err = err or agg_problem(part.get("agg", "count"), part.get("column"))
+        try:
+            err = _shape_problem(w)
+            if err:
+                pass
+            elif not wid or wid in seen:
+                err = "missing or duplicate id"
+            elif t not in TYPES:
+                err = f"unknown type '{t}'"
+            elif t in ("kpi", "trend"):
+                err = agg_problem(w.get("agg", "count"), w.get("column"))
+                for c in (w.get("where") or {}):
+                    err = err or col_ok(c)
+            elif t == "breakdown":
+                err = col_ok(w.get("by")) or agg_problem(w.get("agg", "count"), w.get("column"))
+            elif t == "combo":
+                err = col_ok(w.get("by"))
+                for k in ("bar", "line"):
+                    part = w.get(k) or {}
+                    err = err or agg_problem(part.get("agg", "count"), part.get("column"))
+        except (TypeError, AttributeError, ValueError) as e:       # anything an LLM can invent
+            err = f"malformed ({e})"
         if err:
-            problems.append(f"widget '{wid}' dropped: {err}")
+            problems.append(f"widget '{wid if isinstance(wid, str) else '#' + str(i)}' dropped: {err}")
         else:
             seen.add(wid)
             good.append(w)
     out = {**spec, "widgets": good}
     if "filters" in spec:
-        out["filters"] = [c for c in spec["filters"] if c in df.columns]
-        problems += [f"filter '{c}' dropped: unknown column '{c}'" for c in spec["filters"] if c not in df.columns]
+        wanted = spec["filters"] if isinstance(spec["filters"], list) else []
+        out["filters"] = [c for c in wanted if isinstance(c, str) and c in df.columns]
+        problems += [f"filter {c!r} dropped: unknown column" for c in wanted if c not in out["filters"]]
     return out, problems
 
 
@@ -139,8 +169,11 @@ def _labels(cur, base, w, by_values):
     """Category order: explicit 'order', else top N by current value (or alphabetical if sort=label)."""
     if w.get("order"):
         return list(w["order"])
-    s = by_values(cur) if len(cur) else by_values(base)
-    labels = list(s.sort_values(ascending=False).head(w.get("top", 10)).index)
+    parts = [by_values(d) for d in (cur, base) if d is not None and len(d)]
+    if not parts:
+        return []
+    s = pd.concat(parts, axis=1).fillna(0).max(axis=1)        # rank by the larger of the two periods
+    labels = list(s.sort_values(ascending=False, kind="mergesort").head(w.get("top", 10)).index)
     return sorted(labels) if w.get("sort") == "label" else labels
 
 
@@ -151,14 +184,23 @@ def _series(df, labels, by, agg, column):
     return [_num(v) for v in s.reindex(labels).fillna(0)]
 
 
+def _totals(cur, base, by):
+    """Records per period across ALL categories, whatever the chart shows."""
+    n = lambda d: int(d.groupby(by).size().sum()) if len(d) else 0
+    return {"current": n(cur), **({"baseline": n(base)} if base is not None else {})}
+
+
 def _breakdown(cur, base, w):
     by, agg, col = w["by"], w.get("agg", "count"), w.get("column")
     labels = _labels(cur, base, w, lambda d: _grouped(d, by, agg, col))
+    totals = _totals(cur, base, by) if agg == "count" else None
     out = {"current": {"labels": labels, "values": _series(cur, labels, by, agg, col)}}
+    if totals:
+        out["totals"] = totals
     if base is not None:
         out["baseline"] = {"labels": labels, "values": _series(base, labels, by, agg, col)}
         out["compare"] = compare_rows(dict(zip(labels, out["current"]["values"])),
-                                      dict(zip(labels, out["baseline"]["values"])), counts=(agg == "count"))
+                                      dict(zip(labels, out["baseline"]["values"])), counts=(agg == "count"), totals=totals)
     return out
 
 
@@ -168,11 +210,14 @@ def _combo(cur, base, w):
     la, lc = line.get("agg", "count"), line.get("column")
     labels = _labels(cur, base, w, lambda d: _grouped(d, by, ba, bc))
     mk = lambda d: {"labels": labels, "bar": _series(d, labels, by, ba, bc), "line": _series(d, labels, by, la, lc)}
+    totals = _totals(cur, base, by) if ba == "count" else None
     out = {"current": mk(cur)}
+    if totals:
+        out["totals"] = totals
     if base is not None:
         out["baseline"] = mk(base)
         out["compare"] = compare_rows(dict(zip(labels, out["current"]["bar"])),
-                                      dict(zip(labels, out["baseline"]["bar"])), counts=(ba == "count"))
+                                      dict(zip(labels, out["baseline"]["bar"])), counts=(ba == "count"), totals=totals)
     return out
 
 
@@ -185,20 +230,26 @@ def build_payload(df, spec, date_col, current, baseline=None, labels=None):
     name = lambda p: f"{p[0]} to {p[1]}"
     dates = labels or {"current": name(current), "baseline": name(baseline) if baseline else ""}
 
-    widgets = {}
+    widgets, kept = {}, []
     for w in spec["widgets"]:
-        t = w["type"]
-        if t == "kpi":
-            r = {"current": _kpi(cur, w)}
-            if base is not None:
-                r["baseline"] = _kpi(base, w)
-        elif t == "trend":
-            r = {"current": _trend(cur, w, date_col, *current)}
-            if base is not None:
-                r["baseline"] = _trend(base, w, date_col, *baseline)
-        elif t == "breakdown":
-            r = _breakdown(cur, base, w)
-        else:
-            r = _combo(cur, base, w)
+        try:
+            t = w["type"]
+            if t == "kpi":
+                r = {"current": _kpi(cur, w)}
+                if base is not None:
+                    r["baseline"] = _kpi(base, w)
+            elif t == "trend":
+                r = {"current": _trend(cur, w, date_col, *current)}
+                if base is not None:
+                    r["baseline"] = _trend(base, w, date_col, *baseline)
+            elif t == "breakdown":
+                r = _breakdown(cur, base, w)
+            else:
+                r = _combo(cur, base, w)
+        except Exception as e:                                  # one bad widget must not take the dashboard down
+            problems = problems + [f"widget '{w['id']}' dropped: could not be computed ({e})"]
+            continue
         widgets[w["id"]] = r
-    return {"spec": spec, "data": {"dates": dates, "widgets": widgets}, "warnings": problems}
+        kept.append(w)
+    rows = {"current": int(len(cur)), "baseline": int(len(base)) if base is not None else None}
+    return {"spec": {**spec, "widgets": kept}, "data": {"dates": dates, "rows": rows, "widgets": widgets}, "warnings": problems}

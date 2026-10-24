@@ -12,10 +12,11 @@ from statistics import NormalDist
 MIN_COMBINED = 10     # fewer than this many records across both periods is never called notable
 
 
-def compare_rows(cur, base, counts=True, alpha=0.05):
+def compare_rows(cur, base, counts=True, alpha=0.05, totals=None):
     labels = list(cur)
     c, b = dict(cur), {l: base.get(l, 0) for l in labels}
-    tc, tb = sum(c.values()), sum(b.values())
+    t = totals or {}          # full-period totals, so categories hidden by a top-N cut still count
+    tc, tb = t.get("current", sum(c.values())), t.get("baseline", sum(b.values()))
     cut = NormalDist().inv_cdf(1 - alpha / (2 * max(len(labels), 1)))
     rows = []
     for l in labels:

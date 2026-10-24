@@ -45,6 +45,9 @@ def _finding(kind, severity, text, subject, score):
 
 def _rows(payload):
     """(current, baseline) record counts from the first plain 'count everything' KPI, or (None, None)."""
+    r = payload["data"].get("rows")                  # recorded by the aggregator, independent of the spec
+    if r:
+        return r["current"], r.get("baseline")
     for w in payload["spec"]["widgets"]:
         if w["type"] == "kpi" and w.get("agg", "count") == "count" and not w.get("where") and not w.get("column"):
             d = payload["data"]["widgets"][w["id"]]
@@ -56,14 +59,20 @@ def _rows(payload):
 def _sample_size(payload):
     n, base_n = _rows(payload)
     if n == 0:
-        return [_finding("no_data", "high", "No records match the current filters and dates.", "sample", 1e9)], True
+        return [_finding("no_data", "high", "No records match the current filters and dates.", "sample", 1e9)], True, False
     out = []
     if n is not None and n < SMALL_N:
         extra = f" (baseline has {_fmt(base_n)})" if base_n is not None else ""
         out.append(_finding("small_sample", "high",
                             f"Only {_fmt(n)} records in this view{extra}; treat changes as indicative, not conclusive.",
                             "sample", 1e8))
-    return out, False
+    tiny = base_n is not None and base_n < SMALL_N      # percentages against a tiny baseline mean nothing
+    if tiny and (n is None or n >= SMALL_N):
+        what = "has no records" if base_n == 0 else f"has only {_fmt(base_n)} records"
+        out.append(_finding("baseline_small", "high",
+                            f"The baseline {what}, so changes measured against it are not reliable. "
+                            "Choose a later baseline date or a longer baseline period.", "sample", 1e8))
+    return out, False, tiny
 
 
 def _kpis(payload):
@@ -94,7 +103,7 @@ def _kpis(payload):
     return out
 
 
-def _breakdowns(payload):
+def _breakdowns(payload, compare=True):
     out = []
     for w in payload["spec"]["widgets"]:
         if w["type"] != "breakdown":
@@ -102,7 +111,7 @@ def _breakdowns(payload):
         d = payload["data"]["widgets"][w["id"]]
         cur = dict(zip(d["current"]["labels"], d["current"]["values"]))
         lab = w["label"][0].lower() + w["label"][1:]
-        total = sum(cur.values())
+        total = (d.get("totals") or {}).get("current") or sum(cur.values())   # whole period, not just the bars shown
 
         if w.get("agg", "count") == "count" and total:
             top, v = max(cur.items(), key=lambda kv: kv[1])
@@ -113,7 +122,7 @@ def _breakdowns(payload):
                 out.append(_finding("data_quality", "high" if share >= 25 else "medium",
                                     f"{share:.0f}% of records have no value for {lab} ('{BLANK}').", w["id"], share))
 
-        if "baseline" not in d or w.get("agg", "count") != "count":
+        if not compare or "baseline" not in d or w.get("agg", "count") != "count":
             continue
         base = dict(zip(d["baseline"]["labels"], d["baseline"]["values"]))
         best = None
@@ -191,10 +200,11 @@ def _combos(payload):
 # ------------------------------------------------------------------ public
 def build_findings(payload):
     """All findings, most important first. An empty view returns one 'no data' finding."""
-    head, empty = _sample_size(payload)
+    head, empty, tiny = _sample_size(payload)
     if empty:
         return head
-    found = head + _kpis(payload) + _breakdowns(payload) + _spikes(payload) + _combos(payload)
+    # With a tiny baseline every comparison is noise: keep the warning plus findings that need no baseline.
+    found = head + ([] if tiny else _kpis(payload)) + _breakdowns(payload, compare=not tiny) + _spikes(payload) + ([] if tiny else _combos(payload))
     return sorted(found, key=lambda f: (-SEVERITY[f["severity"]], -f["score"]))
 
 
