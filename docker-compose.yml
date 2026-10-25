@@ -1,0 +1,27 @@
+# PostgreSQL for HealthDash live mode.
+#   docker compose up -d db        start (first run downloads the image)
+#   docker compose ps              should show "healthy"
+#   docker compose stop            stop, keeping the data
+#   docker compose down -v         stop AND DELETE all stored data
+# These are development credentials. Change them, and never expose the port, for anything beyond your own machine.
+services:
+  db:
+    image: postgres:16
+    container_name: healthdash-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: healthdash
+      POSTGRES_PASSWORD: healthdash
+      POSTGRES_DB: healthdash
+    ports:
+      - "127.0.0.1:5432:5432"          # reachable from this computer only
+    volumes:
+      - healthdash-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U healthdash -d healthdash"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  healthdash-pgdata:

@@ -3,5 +3,7 @@ numpy
 openpyxl
 requests
 python-dotenv
+sqlalchemy>=2.0
 pytest
 streamlit
+psycopg2-binary
