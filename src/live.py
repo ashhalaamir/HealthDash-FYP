@@ -20,11 +20,14 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from datetime import timedelta
+
 import pandas as pd
 from sqlalchemy import delete, func, insert, select, update
 
 from .aggregator import previous_period
-from .db import (ROOT, dataset_specs, get_dataset, get_engine, load_dataframe, pipeline_runs, records, snapshots, utcnow)
+from .db import (ROOT, dataset_specs, get_dataset, get_engine, ingested_files, load_dataframe, pipeline_runs, records, snapshots, utcnow)
+from .filters import filter_options
 from .insights import build_findings, top_findings
 from .pipeline import make_dashboard, prepare
 from .renderer import render_html
@@ -65,7 +68,7 @@ def parse_window(text):
 def rolling_windows(as_of, days):
     """(current, baseline): the last `days` days up to as_of, and the same number of days before that."""
     end = pd.Timestamp(as_of).normalize()
-    current = ((end - pd.Timedelta(days=days - 1)).strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"))
+    current = ((end - timedelta(days=days - 1)).strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"))
     return current, previous_period(*current)
 
 
@@ -116,6 +119,75 @@ def _since_last(new, old, rows_new):
     return {"rows_new": rows_new,                                             # rows that arrived since the last snapshot
             "window_change": new["data"]["rows"]["current"] - old["data"]["rows"]["current"],   # change in records inside the window
             "findings": [{"kind": f["kind"], "severity": f["severity"], "text": f["text"]} for f in top_findings(found, 5)]}
+
+
+def pipeline_status(engine, dataset, stale_after_minutes=90, now=None):
+    """Is the pipeline healthy? 'stale' = no successful (ok or no_change) refresh within the allowed time."""
+    now = now or utcnow()
+    with engine.connect() as c:
+        last = c.execute(select(pipeline_runs).where(pipeline_runs.c.dataset == dataset)
+                         .order_by(pipeline_runs.c.id.desc()).limit(1)).mappings().first()
+        ok = c.execute(select(pipeline_runs).where(pipeline_runs.c.dataset == dataset, pipeline_runs.c.status.in_(("ok", "no_change")))
+                       .order_by(pipeline_runs.c.id.desc()).limit(1)).mappings().first()
+    ok_at = ok["finished_at"] if ok else None
+    age = (now - ok_at).total_seconds() / 60 if ok_at else None
+    stale = age is None or age > stale_after_minutes
+    failed = bool(last and last["status"] == "failed")
+    if not last:
+        message = "No refresh has run yet."
+    elif failed:
+        message = f"The last refresh failed: {last['message']}"
+    elif stale:
+        message = f"No successful refresh for {int(age)} minutes."
+    else:
+        message = "Healthy."
+    return {"last": dict(last) if last else None, "last_ok_at": ok_at, "age_minutes": age,
+            "stale": stale, "failed": failed, "message": message}
+
+
+def recent_files(engine, dataset, limit=10):
+    with engine.connect() as c:
+        rows = c.execute(select(ingested_files).where(ingested_files.c.dataset == dataset)
+                         .order_by(ingested_files.c.id.desc()).limit(limit)).mappings().all()
+    return [dict(r) for r in rows]
+
+
+def snapshot_history(engine, dataset, limit=10):
+    with engine.connect() as c:
+        rows = c.execute(select(snapshots.c.id, snapshots.c.created_at, snapshots.c.window_label, snapshots.c.payload)
+                         .where(snapshots.c.dataset == dataset).order_by(snapshots.c.id.desc()).limit(limit)).all()
+    return [{"id": r.id, "created_at": r.created_at, "window": r.window_label, "summary": r.payload["insights"]["source"],
+             "findings": len(r.payload["insights"]["findings"])} for r in rows]
+
+
+def view_filters(engine, dataset, snapshot):
+    """{column: values} for the filter boxes, from the snapshot's own window and the layout's filter list."""
+    meta, spec = snapshot["payload"]["meta"], snapshot["payload"]["spec"]
+    df = load_dataframe(engine, dataset, meta["baseline"][0], meta["current"][1])
+    return filter_options(df, [c for c in spec.get("filters", []) if c in df.columns])
+
+
+def view_dashboard(engine, dataset, snapshot, filters=None, llm=None, narrate=False, cache=None, stale_after=None):
+    """The dashboard to show for a snapshot. No filters: the stored snapshot itself. With filters: recomputed from the
+    database over the snapshot's windows, so every number and sentence describes exactly the selected slice."""
+    payload, meta = snapshot["payload"], snapshot["payload"]["meta"]
+    title = payload["spec"].get("title") or dataset
+    active = {c: v for c, v in (filters or {}).items() if v}
+    live = {"snapshot_id": snapshot["id"], "updated_at": snapshot["created_at"].isoformat() + "Z", "stale_minutes": stale_after}
+    if active:
+        df = load_dataframe(engine, dataset, meta["baseline"][0], meta["current"][1])
+        out = make_dashboard(prepare(df), current=tuple(meta["current"]), baseline=tuple(meta["baseline"]), spec=payload["spec"],
+                             title=title, filters=active, llm=llm, narrate=narrate, cache=cache)
+        p = out["payload"]
+        p["since_last"] = None                      # the comparison with the previous refresh is for the full dataset
+        live["view"] = "filtered view"
+    else:
+        p = json.loads(json.dumps(payload))
+        if narrate and llm is not None:
+            r = summarise(build_findings(p), make_context(p, None, title), llm, cache=cache)
+            p["insights"].update(summary=r["summary"], source=r["source"], notes=r["notes"])
+    p["live"] = live
+    return {"payload": p, "html": render_html(p), "filtered": bool(active)}
 
 
 # ------------------------------------------------------------------ the refresh

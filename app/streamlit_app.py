@@ -43,6 +43,12 @@ nice = lambda c: c.replace("_", " ").strip().capitalize()
 
 # ------------------------------------------------------------------ data
 st.sidebar.title("HealthDash")
+mode = st.sidebar.radio("Mode", ["Explore (upload a file)", "Live (database)"], key="mode")
+if mode.startswith("Live"):
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from live_view import render_live
+    render_live()
+    st.stop()
 st.sidebar.header("Data")
 upload = st.sidebar.file_uploader("Upload a CSV or Excel file", type=["csv", "xlsx", "xls"], key="upload")
 samples = {p.name: p for d in ("data/generated", "data/raw") for p in sorted((ROOT / d).glob("*.csv"))}

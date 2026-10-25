@@ -16,7 +16,7 @@ Tables
     python -m src.db status    show what is stored
 """
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -141,7 +141,7 @@ def load_dataframe(engine, dataset, start=None, end=None):
         if start is not None:
             q = q.where(records.c.event_ts >= pd.Timestamp(start).to_pydatetime())
         if end is not None:
-            q = q.where(records.c.event_ts < (pd.Timestamp(end) + pd.Timedelta(days=1)).to_pydatetime())
+            q = q.where(records.c.event_ts < (pd.Timestamp(end) + timedelta(days=1)).to_pydatetime())
         rows = [r[0] for r in conn.execute(q)]
     df = pd.DataFrame(rows, columns=ds["columns"])
     df[ds["date_column"]] = pd.to_datetime(df[ds["date_column"]])

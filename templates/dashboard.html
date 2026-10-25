@@ -73,6 +73,14 @@ main{flex:1;padding:24px;min-width:0}
 .cmp>p{color:var(--mute);font-size:13px;margin-bottom:14px}
 .cmp .chart{height:340px}
 .empty{color:var(--mute);padding:30px 0;text-align:center}
+.live{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:center;color:var(--mute);font-size:13px;margin-bottom:12px}
+.live[hidden],.since[hidden]{display:none}
+.live .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--good);margin-right:6px}
+.live.stale .dot{background:var(--bad)}
+.since{margin-bottom:14px}
+.since .meta{color:var(--mute);font-size:13px;margin:0 0 10px}
+.since ul{list-style:none;padding:0;margin:0;display:grid;gap:9px}
+.since li{display:flex;gap:9px;align-items:flex-start;font-size:14px}
 @media(max-width:900px){
   body{flex-direction:column}
   aside{width:auto;height:auto;position:static;border-right:0;border-bottom:1px solid var(--line)}
@@ -90,6 +98,7 @@ main{flex:1;padding:24px;min-width:0}
   <div id="dims"></div>
 </aside>
 <main>
+  <div class="live" id="live" hidden><span><span class="dot"></span><b>Live</b></span><span id="liveSnap"></span><span id="liveAge"></span><span id="liveWin"></span></div>
   <section class="ins" id="insights" hidden>
     <div class="top"><h2>Summary</h2><span class="badge" id="insBadge"></span></div>
     <p class="scope" id="insScope"></p>
@@ -97,6 +106,7 @@ main{flex:1;padding:24px;min-width:0}
     <p class="note" id="insNote"></p>
     <details open><summary>Key findings (<span id="alertCount">0</span>)</summary><ul class="alerts" id="alerts"></ul></details>
   </section>
+  <section class="card since" id="since" hidden><h2>Since the last refresh</h2><p class="meta" id="sinceMeta"></p><ul id="sinceList"></ul></section>
   <section class="kpis" id="kpis"></section>
   <section class="grid" id="grid"></section>
   <section class="cmp" id="cmp">
@@ -169,7 +179,7 @@ main{flex:1;padding:24px;min-width:0}
 </script>
 
 <script>
-const {spec, data, insights} = JSON.parse(document.getElementById('payload').textContent);
+const {spec, data, insights, since_last, live} = JSON.parse(document.getElementById('payload').textContent);
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const COL = {cur: css('--cur'), alt: css('--alt'), base: css('--base')};
 const PALETTE = ['--p1','--p2','--p3','--p4','--p5','--p6'].map(css);
@@ -206,6 +216,30 @@ function renderInsights(ins){
   $('alertCount').textContent = (ins.findings || []).length;
 }
 if (insights) renderInsights(insights);
+
+if (live){                                   // live mode: which snapshot this is, and how old it is (updates in the browser)
+  $('live').hidden = false;
+  $('liveSnap').textContent = `Snapshot #${live.snapshot_id}` + (live.view ? ` | ${live.view}` : '');
+  $('liveWin').textContent = `${data.dates.current} vs ${data.dates.baseline}`;
+  const t = new Date(live.updated_at);
+  const tick = () => {
+    const m = Math.max(0, Math.round((Date.now() - t) / 60000));
+    $('liveAge').textContent = `updated ${t.toLocaleString()} (${m < 1 ? 'just now' : m < 120 ? m + ' min ago' : Math.round(m / 60) + ' h ago'})`;
+    $('live').classList.toggle('stale', live.stale_minutes != null && m > live.stale_minutes);
+  };
+  tick(); setInterval(tick, 30000);
+}
+if (since_last){                             // what moved between the previous snapshot and this one
+  $('since').hidden = false;
+  const n = since_last.rows_new || 0, fs = since_last.findings || [];
+  $('sinceMeta').textContent = `${n.toLocaleString()} new record${n === 1 ? '' : 's'} arrived since the previous refresh.` + (fs.length ? '' : ' No notable change.');
+  for (const f of fs){
+    const li = document.createElement('li'), chip = document.createElement('span'), txt = document.createElement('span');
+    chip.className = 'chip ' + (['high','medium','low'].includes(f.severity) ? f.severity : 'low');
+    chip.textContent = f.severity; txt.textContent = f.text;
+    li.append(chip, txt); $('sinceList').appendChild(li);
+  }
+}
 
 function kpiCard(w){
   const d = W(w.id), cur = d.current.value, base = d.baseline ? d.baseline.value : null;

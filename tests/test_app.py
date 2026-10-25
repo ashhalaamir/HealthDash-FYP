@@ -103,7 +103,7 @@ def test_changing_a_filter_drops_the_stale_ai_summary(app, monkeypatch):
 
 
 def test_period_comparison_mode(app):
-    app.sidebar.radio[0].set_value("Two periods (current vs the one before)").run()
+    next(r for r in app.sidebar.radio if r.label == "Comparison").set_value("Two periods (current vs the one before)").run()
     assert not app.exception and "Total records" in page(app)
 
 

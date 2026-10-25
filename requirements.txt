@@ -5,5 +5,5 @@ requests
 python-dotenv
 sqlalchemy>=2.0
 pytest
-streamlit
+streamlit>=1.37
 psycopg2-binary

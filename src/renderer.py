@@ -12,7 +12,7 @@ def render_html(payload, template_path=TEMPLATE):
     html = Path(template_path).read_text(encoding="utf-8")
     if not PAYLOAD_RE.search(html):
         raise ValueError("Template has no payload block (<script id=\"payload\" type=\"application/json\">).")
-    keys = [k for k in ("spec", "data", "insights") if payload.get(k) is not None]
+    keys = [k for k in ("spec", "data", "insights", "since_last", "live") if payload.get(k) is not None]
     body = json.dumps({k: payload[k] for k in keys}, ensure_ascii=False)
     body = body.replace("</", "<\\/")          # data must never be able to close the script tag
     html = PAYLOAD_RE.sub(lambda m: m.group(1) + "\n" + body + "\n" + m.group(3), html, count=1)

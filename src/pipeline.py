@@ -16,6 +16,7 @@ CLI:
       --filter gender=Female --filter age_group=40-59,60+ --llm --narrate --out data/output/opd.html
 """
 import argparse
+from datetime import timedelta
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -51,7 +52,7 @@ def prepare(source, required_columns=None):
 def default_periods(prep):
     """Last 30 days of data against the 30 days before."""
     last = prep.df[prep.date_col].max()
-    current = ((last - pd.Timedelta(days=29)).strftime("%Y-%m-%d"), last.strftime("%Y-%m-%d"))
+    current = ((last - timedelta(days=29)).strftime("%Y-%m-%d"), last.strftime("%Y-%m-%d"))
     return current, previous_period(*current)
 
 

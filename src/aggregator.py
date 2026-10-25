@@ -12,6 +12,8 @@ Spec fields per widget (id and label are always required):
     combo      by, bar{agg,column?}, line{agg,column?}, top?   bars + line   {"labels", "bar", "line"}
 agg is one of count, sum, mean, median, min, max, nunique. "column" is the measure, "by" the category.
 """
+from datetime import timedelta
+
 import pandas as pd
 
 from .compare import compare_rows
@@ -26,7 +28,7 @@ WEEKLY_AFTER_DAYS = 62
 def window(df, date_col, start, end):
     """Rows with start <= date <= end (end day included)."""
     d = df[date_col]
-    return df[(d >= pd.Timestamp(start)) & (d < pd.Timestamp(end) + pd.Timedelta(days=1))]
+    return df[(d >= pd.Timestamp(start)) & (d < pd.Timestamp(end) + timedelta(days=1))]
 
 
 def cumulative_windows(df, date_col, baseline_date, current_date):
@@ -39,7 +41,7 @@ def previous_period(start, end):
     """Same-length window immediately before (start, end)."""
     s, e = pd.Timestamp(start), pd.Timestamp(end)
     days = (e - s).days + 1
-    return (s - pd.Timedelta(days=days)).strftime("%Y-%m-%d"), (s - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+    return (s - timedelta(days=days)).strftime("%Y-%m-%d"), (s - timedelta(days=1)).strftime("%Y-%m-%d")
 
 
 # --------------------------------------------------------------- validation

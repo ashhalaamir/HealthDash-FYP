@@ -156,6 +156,14 @@ def ingest_file(engine, path, dataset=None, date_col=None):
     return ingest_frame(engine, raw, dataset, path.name, file_hash, date_col)
 
 
+def ingest_bytes(engine, filename, content, dataset):
+    """Ingest an uploaded file held in memory. Same rules as a file on disk."""
+    import tempfile
+    path = Path(tempfile.mkdtemp()) / Path(filename).name
+    path.write_bytes(content)
+    return ingest_file(engine, path, dataset)
+
+
 def scan_folder(engine, folder=INCOMING, min_age_seconds=2):
     """Ingest every new file under `folder`, oldest first. Returns one IngestResult per file seen."""
     folder = Path(folder)

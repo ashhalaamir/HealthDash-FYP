@@ -3,7 +3,7 @@
 One document for everything. This first part covers **running live mode**: the database, the worker and
 Airflow. Further parts (architecture, spec format, evaluation) get added here as they are written.
 
-**Contents:** 1 What live mode is · 2 Database setup · 3 Running live mode · 4 Airflow · 5 Command cheat sheet · 6 Troubleshooting
+**Contents:** 1 What live mode is · 2 Database setup · 3 Running live mode · 4 The live page · 5 Airflow · 6 Command cheat sheet · 7 Troubleshooting
 
 ---
 
@@ -184,7 +184,58 @@ seconds) waits for the next cycle. Run **one** worker per database.
 
 ---
 
-## 4. Airflow (optional, for the scheduler your supervisor mentioned)
+## 4. The live page
+
+Start the app (`streamlit run app/streamlit_app.py`) and set **Mode** (top of the sidebar) to **Live (database)**.
+Explore mode (upload a file) is unchanged and is one click away.
+
+**What you see.** The dashboard fills the page. Inside it, above the usual charts:
+
+* a **Live strip**: the snapshot number, when it was built ("updated 12:30, 3 min ago", which keeps counting in your browser),
+  and the two periods compared (the last N days against the N days before);
+* the **plain-English summary** and the ranked list of what changed;
+* **Since the last refresh**: how many new records arrived since the previous snapshot, and what moved because of them.
+  This is the comparison that only exists because data is stored over time.
+
+**Sidebar controls**
+
+| Control | What it does |
+|---|---|
+| Dataset | Which dataset to show (the subfolder names you loaded). |
+| Watch folder | Where *Refresh now* looks for new files (default `data/incoming`). |
+| Window for new snapshots | The rolling window (1, 7, 14 or 30 days) used when you press *Refresh now*. Each snapshot remembers its own window. |
+| AI summaries | Let *Refresh now* use the LLM for the layout (first time only) and for the summary (only when the findings changed). Needs the key in `.env`. |
+| **Refresh now** | Runs one worker cycle inside the app: load new files, then build new snapshots. Useful when you are not running the worker. |
+| Add a file to the database | Upload a CSV or Excel file under a dataset name; it is loaded and a snapshot is built. |
+| Filters | Gender, age group and so on, taken from the dashboard layout. Choosing one recomputes the whole page **from the database** for that slice, so every number, finding and summary describes exactly what you selected. |
+| **Summarise this view (AI)** | Writes a plain-English summary of the current filter selection. It is kept only while the view stays the same: a new snapshot or a different filter goes back to the automatic summary. |
+| Check for new snapshots | How often the page looks for a newer snapshot (off, 10 seconds, 30 seconds, 1 minute, 5 minutes). The page only redraws when one exists. |
+| Warn if no refresh for | Shows a red warning above the dashboard if no refresh has succeeded for this many minutes, and a separate error if the last refresh failed. |
+| Recent file loads / Snapshot history | What was loaded (with rows new, duplicate and rejected), and the last snapshots. |
+
+**How the page stays current.** The page never builds snapshots itself (apart from the two buttons above). The worker or
+Airflow builds them in the background; the page checks for a newer one on a timer and redraws only if there is one. A
+refresh that finds nothing new is recorded as `no_change` and counts as healthy, so a quiet hour does not raise the stale warning.
+
+**Good to know**
+
+* *Since the last refresh* is shown for the whole dataset only. With a filter selected, the page shows the slice against the
+  previous period instead.
+* A filter value that no longer exists in the window (for example a diagnosis not seen this week) is dropped from your selection
+  automatically.
+* When a new snapshot arrives, the dashboard reloads, so a comparison tab you had open resets to the first view.
+
+**An end-to-end demo**
+
+1. Start Postgres (or skip this to use SQLite) and open **two terminals** in the repository folder.
+2. Terminal 1: `python -m src.worker --every 1m`
+3. Terminal 2: `streamlit run app/streamlit_app.py`, then choose Live mode and set *Check for new snapshots* to 10 seconds.
+4. Put a first file in `data/incoming/opd/`. Within a minute the page shows snapshot 1.
+5. Put a second file there. Within a minute the page shows snapshot 2 with the **Since the last refresh** panel filled in.
+
+---
+
+## 5. Airflow (optional, for the scheduler your supervisor mentioned)
 
 `airflow/dags/dashboard_dag.py` defines the DAG `healthdash_refresh`: every 30 minutes, `ingest_new_files` then
 `refresh_snapshots`. It calls the same functions as the worker, so results are identical. Only one run can be active at a
@@ -218,7 +269,7 @@ Airflow as the production scheduler in your report.
 
 ---
 
-## 5. Command cheat sheet
+## 6. Command cheat sheet
 
 | Task | Command |
 |---|---|
@@ -233,11 +284,11 @@ Airflow as the production scheduler in your report.
 | One cycle only | `python -m src.worker --once` |
 | List usable LLM models | `python -m src.llm models` |
 | Run all tests | `python -m pytest tests -q` |
-| Upload-mode app | `streamlit run app/streamlit_app.py` |
+| The app (Explore and Live modes) | `streamlit run app/streamlit_app.py` |
 
 ---
 
-## 6. Troubleshooting
+## 7. Troubleshooting
 
 | What you see | Likely cause and fix |
 |---|---|
